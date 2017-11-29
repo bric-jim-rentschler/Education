@@ -9,6 +9,7 @@ using Office = Microsoft.Office.Core;
 using System.Reflection;
 using System.IO;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 
 namespace Education
 {
@@ -25,9 +26,28 @@ namespace Education
             ProcessData();
             Application.Run(new Form1());
         }
+
+        public static int ExcelColumnNameToNumber(string columnName)
+        {
+            if (string.IsNullOrEmpty(columnName)) throw new ArgumentNullException("columnName");
+
+            columnName = columnName.ToUpperInvariant();
+
+            int sum = 0;
+
+            for (int i = 0; i < columnName.Length; i++)
+            {
+                sum *= 26;
+                sum += (columnName[i] - 'A' + 1);
+            }
+
+            return sum;
+        }
+
         public static void ProcessData()
         {
             string[] files = Directory.GetFiles(@"C:\Users\jrent\Documents\test", "*.xls");
+            List<Category> cat = new List<Category>();
             foreach (string file in files)
             {
                 Excel.Application excelApp = new Excel.ApplicationClass();
@@ -52,31 +72,16 @@ namespace Education
 
 
 
-
-
                 Excel.Range allCells = (Excel.Range)activeWorksheet.UsedRange;
 
                 foreach (Excel.Range cell in allCells)
                 {
                     String cellValue = Convert.ToString(cell.Value);
-                    int mergedNumberOfCells = Convert.ToInt32(cell.Cells.MergeArea.Count);
-                    int cellRow = Convert.ToInt32(cell.Row);
-                    int cellColumn = Convert.ToInt32(cell.Column);
                     int cellColor = Convert.ToInt32(cell.Font.Color);
-
                     if (cellValue != null && !cellValue.Equals(""))
                     {
-                        if (cellColor == 16776960)
-                        {
-                            int[] location = new int[2];
-                            location[0] = cellRow;
-                            location[1] = cellColumn;
-                            cell.UnMerge();
-                            otherCategory.Add(Tuple.Create(cellValue, mergedNumberOfCells));
-                            cellLocations.Add(Tuple.Create(cellValue, location));
 
-                            var mergedArea = cell.Cells.MergeArea;
-                        }
+                        var subcategories = FindSubCategories(cat, activeWorksheet, otherCategory, cellLocations, cell, cellValue, cellColor);
                         if (cellColor == 255)
                         {
                             annualDates.Add(cellValue);
@@ -89,9 +94,9 @@ namespace Education
                         {
                             series.Add(cellValue);
                         }
-                            
+
                     }
-                    
+
                 }
                 /*
                 List<String> fullCategory = new List<String>();
@@ -115,6 +120,80 @@ namespace Education
             }
             Console.WriteLine("Done comments");
         }
-    }
+
+        private static List<Category> FindSubCategories(List<Category> cat,
+                                              Excel.Worksheet activeWorksheet,
+                                              List<Tuple<string, int>> otherCategory,
+                                              List<Tuple<string, int[]>> cellLocations,
+                                              Excel.Range cell, string cellValue,
+                                              int cellColor)
+        {
+            if (cellColor == 16776960)
+            {
+                int mergedNumberOfCells = Convert.ToInt32(cell.Cells.MergeArea.Count);
+                int cellRow = Convert.ToInt32(cell.Row);
+                int cellColumn = Convert.ToInt32(cell.Column);
+                ListDictionary subCatValueAndLength = new ListDictionary();
+                Dictionary<String, int> catValueAndLength = new Dictionary<String, int>();
+                int[] location = new int[2];
+                location[0] = cellColumn;
+                location[1] = cellRow;
+                var cellBelow = (activeWorksheet.Cells[location[1] + 1, location[0]] as Excel.Range);
+                var cellBelowVal = cellBelow.Value;
+                var cellAbove = (activeWorksheet.Cells[location[1] - 1, location[0]] as Excel.Range);
+                var cellAboveVal = cellAbove.Value;
+                var selectedCell = (activeWorksheet.Cells[location[0], location[1]] as Excel.Range);
+                // Check if cell below is shaded same color
+                if (Convert.ToInt32(cellBelow.Font.Color) == 16776960 && cellBelow.MergeCells.Equals(true))
+                {
+                    // Find the cells below merged range and if it is divisable into the selected cell
+                    String range = cellBelow.MergeArea.Address;
+                    var rangeOfSelectedCells = cell.MergeArea.Address;
+                    var numberOfColumnsOfCellsBelow = cellBelow.MergeArea.Columns.Count;
+                    int numberOfColumnsOfSelectedCells = 0;
+                    var colon = rangeOfSelectedCells.IndexOf(':');
+                    if (colon != -1)
+                    {
+                        string startColumn = Convert.ToString(rangeOfSelectedCells[colon - 3]);
+                        string endColumn = Convert.ToString(rangeOfSelectedCells[colon + 2]);
+                        var sColumn = ExcelColumnNameToNumber(startColumn);
+                        var eColumn = 1 + ExcelColumnNameToNumber(endColumn);
+                        numberOfColumnsOfSelectedCells = eColumn - sColumn;
+                        
+                    }
+
+                    if (numberOfColumnsOfSelectedCells % numberOfColumnsOfCellsBelow == 0
+                        && numberOfColumnsOfSelectedCells / numberOfColumnsOfCellsBelow != 1)
+                    {
+                        // determine the number of sub categories under the selected cells
+                        int numberOfSubCategories = (numberOfColumnsOfSelectedCells / numberOfColumnsOfCellsBelow);
+                        int totalNumberOfColumns = numberOfColumnsOfSelectedCells;
+                        // get all the subcategories based on how many and location
+                        var i = 0;
+                        while (i < totalNumberOfColumns)
+                        {
+                            int[] rangeOfCells = new int[2];
+                            rangeOfCells[0] = location[0] + i;
+                            rangeOfCells[1] = location[1] + 1;
+                            var subcategorySelection = (activeWorksheet.Cells[rangeOfCells[1], rangeOfCells[0]] as Excel.Range);
+                            subCatValueAndLength.Add((String)subcategorySelection.Value, numberOfColumnsOfCellsBelow);
+                            i = i + (numberOfColumnsOfCellsBelow);
+                        }
+                        return null;
+
+                    }
+                    
+                    catValueAndLength.Add(cellValue, numberOfColumnsOfSelectedCells);
+                    cat.Add(new Category(catValueAndLength, subCatValueAndLength));
+                    var aboveValue = cellAbove.Value;
+                    var value = selectedCell.Value;
+                    return cat;
+                    
+                }
+                return null;
+            }
+            return null;
+        } 
+    } 
     
 }
