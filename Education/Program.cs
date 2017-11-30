@@ -48,6 +48,7 @@ namespace Education
         {
             string[] files = Directory.GetFiles(@"C:\Users\jrent\Documents\test", "*.xls");
             List<Category> cat = new List<Category>();
+            List<Category> mainAndSubCategories = new List<Category>();
             foreach (string file in files)
             {
                 Excel.Application excelApp = new Excel.ApplicationClass();
@@ -66,9 +67,9 @@ namespace Education
                 List<String> schoolYearDates = new List<String>();
                 List<String> series = new List<String>();
                 List<String> category = new List<String>();
+
                 // Stores the other category and the span of the merged cells
-                List<Tuple<String,int>> otherCategory = new List<Tuple<String,int>>();
-                List<Tuple<String, int[]>> cellLocations = new List<Tuple<String, int[]>>();
+
 
 
 
@@ -80,8 +81,10 @@ namespace Education
                     int cellColor = Convert.ToInt32(cell.Font.Color);
                     if (cellValue != null && !cellValue.Equals(""))
                     {
-
-                        var subcategories = FindSubCategories(cat, activeWorksheet, otherCategory, cellLocations, cell, cellValue, cellColor);
+                        if (cellColor == 16776960)
+                        {
+                            mainAndSubCategories = FindSubCategories(cat, activeWorksheet, cell, cellValue);
+                        }
                         if (cellColor == 255)
                         {
                             annualDates.Add(cellValue);
@@ -111,10 +114,16 @@ namespace Education
                         }
                     }
                 }*/
-                
-                System.Console.WriteLine("Series are: " + series);
-                System.Console.WriteLine("Dates are: " + annualDates);
-                System.Console.WriteLine("Other Categories are: " + otherCategory);
+                var i = 0;
+                while (i <= mainAndSubCategories.Count)
+                {
+                    foreach (KeyValuePair<string, int> kvp in mainAndSubCategories[i].MainCategory)
+                    {
+                        Console.WriteLine("subcategories are" + m);
+                    }
+
+                }
+            
 
                 excelApp.Quit();
             }
@@ -123,13 +132,8 @@ namespace Education
 
         private static List<Category> FindSubCategories(List<Category> cat,
                                               Excel.Worksheet activeWorksheet,
-                                              List<Tuple<string, int>> otherCategory,
-                                              List<Tuple<string, int[]>> cellLocations,
-                                              Excel.Range cell, string cellValue,
-                                              int cellColor)
+                                              Excel.Range cell, string cellValue)
         {
-            if (cellColor == 16776960)
-            {
                 int mergedNumberOfCells = Convert.ToInt32(cell.Cells.MergeArea.Count);
                 int cellRow = Convert.ToInt32(cell.Row);
                 int cellColumn = Convert.ToInt32(cell.Column);
@@ -159,7 +163,7 @@ namespace Education
                         var sColumn = ExcelColumnNameToNumber(startColumn);
                         var eColumn = 1 + ExcelColumnNameToNumber(endColumn);
                         numberOfColumnsOfSelectedCells = eColumn - sColumn;
-                        
+
                     }
 
                     if (numberOfColumnsOfSelectedCells % numberOfColumnsOfCellsBelow == 0
@@ -179,21 +183,23 @@ namespace Education
                             subCatValueAndLength.Add((String)subcategorySelection.Value, numberOfColumnsOfCellsBelow);
                             i = i + (numberOfColumnsOfCellsBelow);
                         }
-                        return null;
+                        catValueAndLength.Add(cellValue, numberOfColumnsOfSelectedCells);
+                        cat.Add(new Category(catValueAndLength, subCatValueAndLength));
+                        var aboveValue = cellAbove.Value;
+                        var value = selectedCell.Value;
+
 
                     }
-                    
+                    else if ((numberOfColumnsOfSelectedCells % numberOfColumnsOfCellsBelow == 0
+                        && numberOfColumnsOfSelectedCells / numberOfColumnsOfCellsBelow == 1))
+                {
                     catValueAndLength.Add(cellValue, numberOfColumnsOfSelectedCells);
-                    cat.Add(new Category(catValueAndLength, subCatValueAndLength));
-                    var aboveValue = cellAbove.Value;
-                    var value = selectedCell.Value;
-                    return cat;
-                    
+                    cat.Add(new Category(catValueAndLength, null));
                 }
-                return null;
-            }
-            return null;
-        } 
+                    return cat;
+                }
+                return cat;
+        }
     } 
     
 }
