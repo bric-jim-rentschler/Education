@@ -101,28 +101,35 @@ namespace Education
                     }
 
                 }
-                /*
-                List<String> fullCategory = new List<String>();
-                if (category.Count > annualDates.Count)
+                
+               // append sub categories to main categories and interate the correct number of times 
+               var i = 0;
+               foreach (Education.Category test1 in mainAndSubCategories)
                 {
-                    foreach (Tuple<String, int> otherCat in otherCategory)
+                    foreach (KeyValuePair<String, int> kvp in mainAndSubCategories[i].MainCategory)
                     {
-                        foreach (String cat in category)
+                        if (mainAndSubCategories[i].SubCategories != null)
                         {
-                            fullCategory.Add(cat + otherCat.Key);
+                            foreach (DictionaryEntry test in mainAndSubCategories[i].SubCategories)
+                            {
+                                var subCatLength = Convert.ToInt32(test.Value);
+                                var s = 0;
+                                while (s < subCatLength)
+                                {
+                                    Console.WriteLine("categories are " + kvp.Key);
+                                    Console.WriteLine(test.Key);
+                                    s++;
+                                }
+
+                            }
 
                         }
-                    }
-                }*/
-                var i = 0;
-                while (i <= mainAndSubCategories.Count)
-                {
-                    foreach (KeyValuePair<string, int> kvp in mainAndSubCategories[i].MainCategory)
-                    {
-                        Console.WriteLine("subcategories are" + m);
-                    }
 
+                    }
+                    i++;
                 }
+                
+                
             
 
                 excelApp.Quit();
