@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections;
 using System.Linq;
+using System.Xml.Linq;
+using System.Xml;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Microsoft.VisualStudio.Tools.Applications.Runtime;
@@ -101,40 +103,59 @@ namespace Education
                     }
 
                 }
-                
-               // append sub categories to main categories and interate the correct number of times 
-               var i = 0;
-               foreach (Education.Category test1 in mainAndSubCategories)
-                {
-                    foreach (KeyValuePair<String, int> kvp in mainAndSubCategories[i].MainCategory)
-                    {
-                        if (mainAndSubCategories[i].SubCategories != null)
-                        {
-                            foreach (DictionaryEntry test in mainAndSubCategories[i].SubCategories)
-                            {
-                                var subCatLength = Convert.ToInt32(test.Value);
-                                var s = 0;
-                                while (s < subCatLength)
-                                {
-                                    Console.WriteLine("categories are " + kvp.Key);
-                                    Console.WriteLine(test.Key);
-                                    s++;
-                                }
 
+                // append sub categories to main categories and interate the correct number of times 
+                
+                var i = 0;
+                using (StringWriter str = new StringWriter())
+                using (XmlTextWriter xml = new XmlTextWriter(str))
+                {
+                    xml.WriteStartDocument();
+                    xml.WriteStartElement("Test");
+                    xml.WriteWhitespace("\n");
+                    while (i < mainAndSubCategories.Count)
+                    {
+
+                        foreach (KeyValuePair<String, int> kvp in mainAndSubCategories[i].MainCategory)
+                        {
+                            if (mainAndSubCategories[i].SubCategories != null)
+                            {
+
+                                foreach (DictionaryEntry test in mainAndSubCategories[i].SubCategories)
+                                {
+                                    var subCatLength = Convert.ToInt32(test.Value);
+                                    var s = 0;
+                                    while (s < subCatLength)
+                                    {
+                                        //Root.     
+                                        xml.WriteStartElement("Category");
+                                        xml.WriteElementString("MainCategory", kvp.Key);
+                                        xml.WriteElementString("SubCategories", test.Key.ToString());
+                                        Console.WriteLine("categories are " + kvp.Key);
+                                        Console.WriteLine(test.Key);
+                                        s++;
+                                        xml.WriteEndElement();
+                                        xml.WriteWhitespace("\n");
+                                    }
+
+                                }
                             }
 
+
                         }
-
+                        i++;
                     }
-                    i++;
-                }
-                
-                
-            
+                    
+                    xml.WriteEndElement();
+                    xml.WriteEndDocument();
 
+                    // Result is a string.
+                    string result = str.ToString();
+                    Console.WriteLine("Length: {0}", result.Length);
+                    Console.WriteLine("Result: {0}", result);
+                }
                 excelApp.Quit();
             }
-            Console.WriteLine("Done comments");
         }
 
         private static List<Category> FindSubCategories(List<Category> cat,
