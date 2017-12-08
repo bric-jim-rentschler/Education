@@ -51,6 +51,7 @@ namespace Education
             string[] files = Directory.GetFiles(@"C:\Users\jrent\Documents\test", "*.xls");
             List<Category> cat = new List<Category>();
             List<Category> mainAndSubCategories = new List<Category>();
+            List<String> subSubCategories = new List<String>();
             foreach (string file in files)
             {
                 Excel.Application excelApp = new Excel.ApplicationClass();
@@ -69,6 +70,7 @@ namespace Education
                 List<String> schoolYearDates = new List<String>();
                 List<String> series = new List<String>();
                 List<String> category = new List<String>();
+                String unformattedNeum = "";
 
                 // Stores the other category and the span of the merged cells
 
@@ -83,6 +85,10 @@ namespace Education
                     int cellColor = Convert.ToInt32(cell.Font.Color);
                     if (cellValue != null && !cellValue.Equals(""))
                     {
+                        if (cell.Row.Equals(1) && cell.Column.Equals(1))
+                        {
+                            unformattedNeum = cellValue;
+                        }
                         if (cellColor == 16776960)
                         {
                             mainAndSubCategories = FindSubCategories(cat, activeWorksheet, cell, cellValue);
@@ -118,21 +124,26 @@ namespace Education
 
                         foreach (KeyValuePair<String, int> kvp in mainAndSubCategories[i].MainCategory)
                         {
+                            // Create list of Subcategories plus sub sub categories.
+                            Console.WriteLine("categories are " + kvp.Key);
+
                             if (mainAndSubCategories[i].SubCategories != null)
                             {
-
                                 foreach (DictionaryEntry test in mainAndSubCategories[i].SubCategories)
                                 {
                                     var subCatLength = Convert.ToInt32(test.Value);
+                                    var mainCatLength = Convert.ToInt32(kvp.Value);
                                     var s = 0;
                                     while (s < subCatLength)
                                     {
                                         //Root.     
-                                        xml.WriteStartElement("Category");
-                                        xml.WriteElementString("MainCategory", kvp.Key);
-                                        xml.WriteElementString("SubCategories", test.Key.ToString());
-                                        Console.WriteLine("categories are " + kvp.Key);
+                                        xml.WriteStartElement("DataPoints");
+                                        xml.WriteStartElement("TestNeum");
+
+                                        xml.WriteAttributeString("MainCategory", kvp.Key);
+                                        xml.WriteAttributeString("SubCategories", test.Key.ToString());
                                         Console.WriteLine(test.Key);
+                                        subSubCategories.Add(kvp.Key + "_" + test.Key.ToString());
                                         s++;
                                         xml.WriteEndElement();
                                         xml.WriteWhitespace("\n");
@@ -140,11 +151,31 @@ namespace Education
 
                                 }
                             }
+                            if (mainAndSubCategories[i].SubCategories == null && mainAndSubCategories[i].MainCategory != null)
+                            {
+                                
+                                
+                                foreach(KeyValuePair<String, int> mc in mainAndSubCategories[i].MainCategory)
+                                {
+                                    var length = 0;
+                                    while (length < mc.Value)
+                                    {
+                                        subSubCategories.Add(mc.Key);
+                                        length++;
+                                    }
 
+                                }
+
+                            }
 
                         }
                         i++;
                     }
+
+                    
+                    
+                    
+                    
                     
                     xml.WriteEndElement();
                     xml.WriteEndDocument();
