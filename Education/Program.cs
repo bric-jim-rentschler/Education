@@ -12,6 +12,8 @@ using System.Reflection;
 using System.IO;
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.Text.RegularExpressions;
+using System.Data;
 
 namespace Education
 {
@@ -45,6 +47,39 @@ namespace Education
 
             return sum;
         }
+
+        public static String createNeum(String neum)
+        {
+            var modifiedNeum = Regex.Replace(neum, @"\s+", " ");
+           
+            if (String.IsNullOrEmpty(modifiedNeum)) throw new ArgumentNullException("neum");
+
+            var i = 0;
+            var first = 0;
+            var newNuem = "";
+            while (i < modifiedNeum.Length)
+            {
+                foreach (var letter in modifiedNeum)
+                {
+
+                    if (letter == ' ' || letter == modifiedNeum[modifiedNeum.Length - 1])
+                    {
+                        char firstLetter = modifiedNeum[first];
+                        if (Char.IsUpper(firstLetter)){
+                            newNuem = newNuem + firstLetter;
+                        }
+                        if (Char.IsLower(firstLetter))
+                        {
+                            newNuem = newNuem + Char.ToUpper(firstLetter);
+                        }
+                        first = i + 1;
+                    }
+                    i++;
+                }
+            }
+            return Convert.ToString(newNuem);
+        }
+
 
         public static void ProcessData()
         {
@@ -101,7 +136,8 @@ namespace Education
                         {
                             category.Add(cellValue);
                         }
-                        if (cellColor != 0)
+                        if (cellColor != 0 && cellColor != 16711935 && cellColor != 255
+                            && cellColor != 16776960)
                         {
                             series.Add(cellValue);
                         }
@@ -109,6 +145,9 @@ namespace Education
                     }
 
                 }
+                String neumAbv = createNeum(unformattedNeum);
+
+               
 
                 // append sub categories to main categories and interate the correct number of times 
                 
@@ -119,6 +158,8 @@ namespace Education
                     xml.WriteStartDocument();
                     xml.WriteStartElement("Test");
                     xml.WriteWhitespace("\n");
+                    xml.WriteStartElement("DataPoints");
+
                     while (i < mainAndSubCategories.Count)
                     {
 
@@ -137,9 +178,8 @@ namespace Education
                                     while (s < subCatLength)
                                     {
                                         //Root.     
-                                        xml.WriteStartElement("DataPoints");
-                                        xml.WriteStartElement("TestNeum");
 
+                                        xml.WriteStartElement("TestNeum");
                                         xml.WriteAttributeString("MainCategory", kvp.Key);
                                         xml.WriteAttributeString("SubCategories", test.Key.ToString());
                                         Console.WriteLine(test.Key);
@@ -153,9 +193,9 @@ namespace Education
                             }
                             if (mainAndSubCategories[i].SubCategories == null && mainAndSubCategories[i].MainCategory != null)
                             {
-                                
-                                
-                                foreach(KeyValuePair<String, int> mc in mainAndSubCategories[i].MainCategory)
+
+
+                                foreach (KeyValuePair<String, int> mc in mainAndSubCategories[i].MainCategory)
                                 {
                                     var length = 0;
                                     while (length < mc.Value)
@@ -172,10 +212,46 @@ namespace Education
                         i++;
                     }
 
+                    DataTable dt = new DataTable();
+                    String spaces = "";
+                    /// generate the xml
+                    foreach (String date in fiscalDates)
+                    {
+                        
+                        try
+                        {
+                            dt.Columns.Add(date);
+                        }
+                        catch (System.Data.DuplicateNameException)
+                        {
+                            spaces += " ";
+                            String columnWithSpaces = date + spaces;
+                            dt.Columns.Add(columnWithSpaces);
+                        }
+                    }
+                    spaces = "";
+
+                    // add subcategories to main categories
+                    List<String> fullCategory = new List<string>();
+                    foreach (var subCat in subSubCategories)
+                    {
+                        foreach (var mainCat in category)
+                        {
+                            String formattedMainCat = mainCat.Replace(".", "");
+                            formattedMainCat = formattedMainCat + "_";
+                            fullCategory.Add(formattedMainCat + subCat);
+                        }
+                    }
+
                     
+                    foreach (var s in series)
+                    {
+                        dt.Rows.Add(s);
+                    }
                     
+
                     
-                    
+          
                     
                     xml.WriteEndElement();
                     xml.WriteEndDocument();
