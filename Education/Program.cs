@@ -86,7 +86,7 @@ namespace Education
             string[] files = Directory.GetFiles(@"C:\Users\jrent\Documents\test", "*.xls");
             List<Category> cat = new List<Category>();
             List<Category> mainAndSubCategories = new List<Category>();
-            List<String> subSubCategories = new List<String>();
+            List<Tuple<String, DateTime>> subSubCatsAndDates = new List<Tuple<String,DateTime>>();
             foreach (string file in files)
             {
                 Excel.Application excelApp = new Excel.ApplicationClass();
@@ -152,118 +152,149 @@ namespace Education
                 // append sub categories to main categories and interate the correct number of times 
                 
                 var i = 0;
+                
+                    
+                int counter = 0;
+                while (i < mainAndSubCategories.Count)
+                {
+
+                    foreach (KeyValuePair<String, int> kvp in mainAndSubCategories[i].MainCategory)
+                    {
+                        // Create list of Subcategories plus sub sub categories.
+                        Console.WriteLine("categories are " + kvp.Key);
+
+                        if (mainAndSubCategories[i].SubCategories != null)
+                        {
+
+
+                            foreach (DictionaryEntry subcategory in mainAndSubCategories[i].SubCategories)
+                            {
+                                var subCatLength = Convert.ToInt32(subcategory.Value);
+                                var mainCatLength = Convert.ToInt32(kvp.Value);
+                                var s = 0;
+
+                                while (s < subCatLength)
+                                {
+                                    //Root.
+                                    DateTime formattedDate = FormattedDate(annualDates[counter]);
+                                    subSubCatsAndDates.Add(new Tuple<String, DateTime>(kvp.Key + "_" + subcategory.Key.ToString(), formattedDate));
+                                    s++;
+                                    counter++;
+                                }
+
+                            }
+                        }
+                        if (mainAndSubCategories[i].SubCategories == null && mainAndSubCategories[i].MainCategory != null)
+                        {
+
+
+                            foreach (KeyValuePair<String, int> mc in mainAndSubCategories[i].MainCategory)
+                            {
+                                var length = 0;
+                                while (length < mc.Value)
+                                {
+                                    DateTime formattedDate = FormattedDate(annualDates[counter]);
+                                    subSubCatsAndDates.Add(new Tuple<String, DateTime>(kvp.Key,formattedDate));
+                                    length++;
+                                    counter++;
+                                }
+
+                            }
+
+                        }
+
+                    }
+                    i++;
+                }
+
+
+
+                // add subcategories to main categories
+                List<Tuple<String,DateTime>> fullCategoryAndDate = new List<Tuple<String, DateTime>>();
+                foreach (var mainCat in category)
+                {
+                    foreach (var subCat in subSubCatsAndDates) 
+                    {
+                        String formattedMainCat = mainCat.Replace(".", "");
+                        formattedMainCat = formattedMainCat + "_";
+                        fullCategoryAndDate.Add(new Tuple<String, DateTime>(formattedMainCat + subCat.Item1, subCat.Item2));
+                    }
+                }
+                List<Tuple<String, DateTime, String>> fullDataPoint = new List<Tuple<String, DateTime, String>>();
+
+                int c = 0;
+                foreach (var data in series)
+                {
+                    fullDataPoint.Add(new Tuple<String, DateTime, String>(fullCategoryAndDate[c].Item1,
+                        fullCategoryAndDate[c].Item2, data.ToString()));
+                    Console.WriteLine("Data is" + data);
+                    c++;
+                }
+                
+                
+
+                // WriteXml
                 using (StringWriter str = new StringWriter())
                 using (XmlTextWriter xml = new XmlTextWriter(str))
                 {
                     xml.WriteStartDocument();
-                    xml.WriteStartElement("Test");
+                    var worksheetName = activeWorksheet.Name.Replace(" ", "_");
+                    xml.WriteStartElement(worksheetName);
                     xml.WriteWhitespace("\n");
-                    xml.WriteStartElement("DataPoints");
-
-                    while (i < mainAndSubCategories.Count)
+                    xml.WriteStartElement("DataSeries");
+                    foreach(var n in fullDataPoint)
                     {
-
-                        foreach (KeyValuePair<String, int> kvp in mainAndSubCategories[i].MainCategory)
-                        {
-                            // Create list of Subcategories plus sub sub categories.
-                            Console.WriteLine("categories are " + kvp.Key);
-
-                            if (mainAndSubCategories[i].SubCategories != null)
-                            {
-                                foreach (DictionaryEntry test in mainAndSubCategories[i].SubCategories)
-                                {
-                                    var subCatLength = Convert.ToInt32(test.Value);
-                                    var mainCatLength = Convert.ToInt32(kvp.Value);
-                                    var s = 0;
-                                    while (s < subCatLength)
-                                    {
-                                        //Root.     
-
-                                        xml.WriteStartElement("TestNeum");
-                                        xml.WriteAttributeString("MainCategory", kvp.Key);
-                                        xml.WriteAttributeString("SubCategories", test.Key.ToString());
-                                        Console.WriteLine(test.Key);
-                                        subSubCategories.Add(kvp.Key + "_" + test.Key.ToString());
-                                        s++;
-                                        xml.WriteEndElement();
-                                        xml.WriteWhitespace("\n");
-                                    }
-
-                                }
-                            }
-                            if (mainAndSubCategories[i].SubCategories == null && mainAndSubCategories[i].MainCategory != null)
-                            {
-
-
-                                foreach (KeyValuePair<String, int> mc in mainAndSubCategories[i].MainCategory)
-                                {
-                                    var length = 0;
-                                    while (length < mc.Value)
-                                    {
-                                        subSubCategories.Add(mc.Key);
-                                        length++;
-                                    }
-
-                                }
-
-                            }
-
-                        }
-                        i++;
+                        xml.WriteStartElement("Neum");
+                        xml.WriteAttributeString("Full_Neum", neumAbv + "_" + n.Item1.TrimStart());
+                        xml.WriteAttributeString("Value", unformattedNeum + n.Item1);
+                        xml.WriteEndElement();
+                        xml.WriteWhitespace("\n");
                     }
-
-                    DataTable dt = new DataTable();
-                    String spaces = "";
-                    /// generate the xml
-                    foreach (String date in fiscalDates)
+                    xml.WriteEndElement();
+                    
+                    xml.WriteStartElement("DataPoints");
+                    foreach (var item in fullDataPoint)
                     {
                         
-                        try
-                        {
-                            dt.Columns.Add(date);
-                        }
-                        catch (System.Data.DuplicateNameException)
-                        {
-                            spaces += " ";
-                            String columnWithSpaces = date + spaces;
-                            dt.Columns.Add(columnWithSpaces);
-                        }
-                    }
-                    spaces = "";
-
-                    // add subcategories to main categories
-                    List<String> fullCategory = new List<string>();
-                    foreach (var subCat in subSubCategories)
-                    {
-                        foreach (var mainCat in category)
-                        {
-                            String formattedMainCat = mainCat.Replace(".", "");
-                            formattedMainCat = formattedMainCat + "_";
-                            fullCategory.Add(formattedMainCat + subCat);
-                        }
+                        xml.WriteStartElement(neumAbv);
+                        xml.WriteAttributeString("Neum", neumAbv + "_" + item.Item1.TrimStart());
+                        xml.WriteAttributeString("Category", item.Item1);
+                        xml.WriteAttributeString("Date", item.Item2.ToString());
+                        xml.WriteAttributeString("Value", item.Item3);
+                        xml.WriteAttributeString("PeriodType", "School Year");
+                        xml.WriteEndElement();
+                        xml.WriteWhitespace("\n");
                     }
 
-                    
-                    foreach (var s in series)
-                    {
-                        dt.Rows.Add(s);
-                    }
-                    
-
-                    
-          
-                    
                     xml.WriteEndElement();
                     xml.WriteEndDocument();
 
+                    
+
                     // Result is a string.
                     string result = str.ToString();
+                    File.WriteAllText(worksheetName + ".xml", result);
                     Console.WriteLine("Length: {0}", result.Length);
                     Console.WriteLine("Result: {0}", result);
                 }
                 excelApp.Quit();
             }
         }
+
+        private static DateTime FormattedDate(String unformattedDate)
+        {
+            
+            //Get rid of non digits
+            String noLetters = Regex.Replace(unformattedDate, "[^0-9]", "");
+            //Convert to int
+            int year = Convert.ToInt32(noLetters);
+            // Convert to date object
+            DateTime dateObject = new DateTime(year, 12, 31);
+            // Subtract 1 year and add one day to get last day of December
+            return dateObject;
+
+        }
+        
 
         private static List<Category> FindSubCategories(List<Category> cat,
                                               Excel.Worksheet activeWorksheet,
