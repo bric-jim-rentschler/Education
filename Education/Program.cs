@@ -112,8 +112,9 @@ namespace Education
             string[] files = Directory.GetFiles(@"C:\Users\jrent\Documents\test", "*.xls");
             List<Category> cat = new List<Category>();
             List<Category> mainAndSubCategories = new List<Category>();
-            List<Tuple<String, DateTime>> subSubCatsAndDates = new List<Tuple<String, DateTime>>();
+            List<Tuple<String, DateTime?, int>> subSubCatsAndDates = new List<Tuple<String, DateTime?, int>>();
             List<DataPoint> dp = new List<DataPoint>();
+            List<DateTime> formattedDates = new List<DateTime>();
             foreach (string file in files)
             {
                 Excel.Application excelApp = new Excel.ApplicationClass();
@@ -127,8 +128,8 @@ namespace Education
 
                 Excel.Worksheet activeWorksheet = ((Excel.Worksheet)excelApp.Application.ActiveWorkbook.Sheets[1]);
 
+
                 
-                List<String> dates = new List<String>();
                 List<String> schoolYearDates = new List<String>();
                 List<String> series = new List<String>();
                 List<String> category = new List<String>();
@@ -139,7 +140,8 @@ namespace Education
 
                 //ORIENTATION PARAMETER
                 //Categories Longer than dates?
-                Boolean catsLongerThanDates = true; 
+                Boolean dateInHeader = false;
+                String dateType = "School Year";
 
                 Excel.Range allCells = (Excel.Range)activeWorksheet.UsedRange;
 
@@ -159,7 +161,8 @@ namespace Education
                         }
                         if (cellColor == 16711680 || cellColor == 255)
                         {
-                            dates.Add(cellValue);
+                            formattedDates.Add(FormattedDate(cellValue));
+                            
                         }
                         if (cellColor == 16711935)
                         {
@@ -184,8 +187,6 @@ namespace Education
 
 
                 int counter = 0;
-                DateTime formattedDate = default(DateTime);
-
 
                 while (i < mainAndSubCategories.Count)
                 {
@@ -198,7 +199,7 @@ namespace Education
 
                         if (mainAndSubCategories[i].SubCategories != null)
                         {
-                            
+
                             foreach (DictionaryEntry subcategory in mainAndSubCategories[i].SubCategories)
                             {
                                 var subCatLength = Convert.ToInt32(subcategory.Value);
@@ -207,15 +208,14 @@ namespace Education
 
                                 while (s < subCatLength)
                                 {
-                                    if (dates.Count != 0)
+                                    if (dateInHeader == false)
                                     {
-                                        formattedDate = FormattedDate(dates[counter]);
+                                       subSubCatsAndDates.Add(new Tuple<String, DateTime?, int>(kvp.Key + "_" + subcategory.Key.ToString(), null, counter));
                                     }
-                                    if (dates.Count != 0)
+                                    else
                                     {
-                                        formattedDate = FormattedDate(dates[counter]);
+                                        subSubCatsAndDates.Add(new Tuple<String, DateTime?, int>(kvp.Key + "_" + subcategory.Key.ToString(), formattedDates[s], counter));
                                     }
-                                    subSubCatsAndDates.Add(new Tuple<String, DateTime>(kvp.Key + "_" + subcategory.Key.ToString(), formattedDate));
                                     s++;
                                     counter++;
                                 }
@@ -231,19 +231,19 @@ namespace Education
                                 var length = 0;
                                 while (length < mc.Value)
                                 {
-                                    if (category.Count < dates.Count)
+                                    if (dateInHeader == true)
                                     {
-                                        if (dates.Count != 0)
+                                        if (formattedDates.Count != 0)
                                         {
-                                            foreach (var d in dates)
+                                            foreach (var d in formattedDates)
                                             {
-                                                formattedDate = FormattedDate(d);
-                                                subSubCatsAndDates.Add(new Tuple<String, DateTime>(kvp.Key, formattedDate));
+                                                
+                                                subSubCatsAndDates.Add(new Tuple<String, DateTime?, int>(kvp.Key, d, counter));
                                             }
 
                                         }
                                     }
-                                    
+
                                     length++;
                                     counter++;
                                 }
@@ -257,33 +257,63 @@ namespace Education
                 }
 
                 // add subcategories to main categories
-                List<Tuple<String, DateTime>> fullCategoryAndDate = new List<Tuple<String, DateTime>>();
-                
+                List<Tuple<String, int>> fullCategoryAndOrder = new List<Tuple<String, int>>();
+
 
                 //foreach (var mainCat in category)
-                foreach(var subCat in subSubCatsAndDates)
+                if (dateInHeader == true)
                 {
-                    //foreach (var subCat in subSubCatsAndDates)
-                    foreach (var mainCat in category)
+                    for (int iter = 0; iter < category.Count; iter++)
                     {
-                        String formattedMainCat = mainCat.Replace(".", "");
+                        String formattedMainCat = category[iter].Replace(".", "");
                         formattedMainCat = formattedMainCat + "_";
-                        fullCategoryAndDate.Add(new Tuple<String, DateTime>(formattedMainCat + subCat.Item1, subCat.Item2));
+                        for (i = 0; i < subSubCatsAndDates.Count; i++)
+                        {
+                            var oldCategory = subSubCatsAndDates[i].Item1;
+                            var someDate = subSubCatsAndDates[i].Item2;
+                            dp.Add(new DataPoint(dateType, formattedMainCat + oldCategory, someDate, null, null, subSubCatsAndDates[i].Item3));
+                        }
                     }
                 }
 
-
-
-                List<Tuple<String, DateTime, String>> fullDataPoint = new List<Tuple<String, DateTime, String>>();
-
-                int c = 0;
-                foreach (var data in series)
+                //Iterate and add dates to the DataPoint object if they are NOT in the header
+                if (dateInHeader == false)
                 {
-                    fullDataPoint.Add(new Tuple<String, DateTime, String>(fullCategoryAndDate[c].Item1,
-                        fullCategoryAndDate[c].Item2, data.ToString()));
-                    Console.WriteLine("Data is" + data);
-                    c++;
+                    int iterator = 0;
+                    foreach (var mainCat in category)
+                    {
+                        foreach (var subCat in subSubCatsAndDates)
+                        
+                        {
+                            String formattedMainCat = mainCat.Replace(".", "");
+                            formattedMainCat = formattedMainCat + "_";
+                            fullCategoryAndOrder.Add(new Tuple<String, int>(formattedMainCat + subCat.Item1, subCat.Item3));
+                            
+                        }
+                    }
+                    var duplicateDates = formattedDates.GroupBy(d => d)
+                                     .Where(g => g.Count() > 1)
+                                     .Select(y => y.Key)
+                                     .ToList();
+
+                    for (var d = 0; d < duplicateDates.Count; d++)
+                    //foreach (var fullCategory in fullCategoryAndOrder)
+                    {
+
+                        //for (var d = 0; d < duplicateDates.Count; d++)
+                        foreach (var fullCategory in fullCategoryAndOrder)
+                        {
+                            dp.Add(new DataPoint(dateType, fullCategory.Item1, duplicateDates[d] , null, null, fullCategory.Item2));
+                        }
+                    }
                 }
+
+                for(var s = 0; s < series.Count; s++)
+                {
+                    dp[s].Value = series[s];
+                }
+
+
 
 
 
@@ -297,35 +327,35 @@ namespace Education
                     xml.WriteWhitespace("\n");
                     xml.WriteStartElement("DataSeries");
                     String previousItem = "";
-                    foreach (var n in fullDataPoint)
+                    foreach (var n in dp)
                     {
-                        if (n.Item1 != previousItem)
+                        if (n.Category != previousItem)
                         {
                             xml.WriteStartElement("Neum");
-                            xml.WriteAttributeString("Full_Neum", neumAbv + "_" + n.Item1.TrimStart());
-                            xml.WriteAttributeString("Value", unformattedNeum + n.Item1);
+                            xml.WriteAttributeString("Full_Neum", neumAbv + "_" + n.Category.TrimStart());
+                            xml.WriteAttributeString("Value", unformattedNeum + n.Category);
                             xml.WriteEndElement();
                             xml.WriteWhitespace("\n");
-                            previousItem = n.Item1;
+                            previousItem = n.Category;
                         }
                         else
                         {
-                            previousItem = n.Item1;
+                            previousItem = n.Category;
                         }
 
                     }
                     xml.WriteEndElement();
 
                     xml.WriteStartElement("DataPoints");
-                    foreach (var item in fullDataPoint)
+                    foreach (var item in dp)
                     {
 
                         xml.WriteStartElement(neumAbv);
-                        xml.WriteAttributeString("Neum", neumAbv + "_" + item.Item1.TrimStart());
-                        xml.WriteAttributeString("Category", item.Item1);
-                        xml.WriteAttributeString("Date", item.Item2.ToString());
-                        xml.WriteAttributeString("Value", item.Item3);
-                        xml.WriteAttributeString("PeriodType", "School Year");
+                        xml.WriteAttributeString("Neum", neumAbv + "_" + item.Category.TrimStart());
+                        xml.WriteAttributeString("Category", item.Category);
+                        xml.WriteAttributeString("Date", item.Date.ToString());
+                        xml.WriteAttributeString("Value", item.Value);
+                        xml.WriteAttributeString("PeriodType", item.PeriodType);
                         xml.WriteEndElement();
                         xml.WriteWhitespace("\n");
                     }
