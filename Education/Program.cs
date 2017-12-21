@@ -75,7 +75,7 @@ namespace Education
 
         public static String createNeum(String neum)
         {
-            var modifiedNeum = Regex.Replace(neum, @"\s+", " ");
+            var modifiedNeum = Regex.Replace(neum, @"\n+", "");
 
             if (String.IsNullOrEmpty(modifiedNeum)) throw new ArgumentNullException("neum");
 
@@ -142,6 +142,7 @@ namespace Education
                 //Categories Longer than dates?
                 Boolean dateInHeader = false;
                 String dateType = "School Year";
+                Boolean headerHasMainAndSubCategories = false;
 
                 Excel.Range allCells = (Excel.Range)activeWorksheet.UsedRange;
 
@@ -157,21 +158,30 @@ namespace Education
                         }
                         if (cellColor == 16776960)
                         {
-                            mainAndSubCategories = FindSubCategories(cat, activeWorksheet, cell, cellValue);
+                            //mainAndSubCategories = FindSubCategories(cat, activeWorksheet, cell, cellValue, headerHasMainAndSubCategories);
                         }
                         if (cellColor == 16711680 || cellColor == 255)
                         {
-                            formattedDates.Add(FormattedDate(cellValue));
+                            if (cellValue != null && cellValue != " ")
+                            {
+                                formattedDates.Add(FormattedDate(cellValue));
+                            }
+                           
                             
                         }
                         if (cellColor == 16711935)
                         {
                             category.Add(cellValue);
+                            mainAndSubCategories = FindSubCategories(cat, activeWorksheet, cell, cellValue, headerHasMainAndSubCategories);
                         }
                         if (cellColor != 0 && cellColor != 16711935 && cellColor != 255
                             && cellColor != 16776960 && cellColor != 16711680)
                         {
-                            series.Add(cellValue);
+                            if(cellValue != null && cellValue != " ")
+                            {
+                                series.Add(cellValue);
+                            }
+                            
                         }
 
                     }
@@ -282,39 +292,59 @@ namespace Education
                     int iterator = 0;
                     foreach (var mainCat in category)
                     {
-                        foreach (var subCat in subSubCatsAndDates)
-                        
+                        if (subSubCatsAndDates.Count > 0)
                         {
-                            String formattedMainCat = mainCat.Replace(".", "");
-                            formattedMainCat = formattedMainCat + "_";
-                            fullCategoryAndOrder.Add(new Tuple<String, int>(formattedMainCat + subCat.Item1, subCat.Item3));
-                            
+                            foreach (var subCat in subSubCatsAndDates)
+
+                            {
+                                String formattedMainCat = mainCat.Replace(".", "");
+                                formattedMainCat = formattedMainCat + "_";
+                                fullCategoryAndOrder.Add(new Tuple<String, int>(formattedMainCat + subCat.Item1, subCat.Item3));
+
+                            }
                         }
+                        else
+                        {
+                            fullCategoryAndOrder.Add(new Tuple<String, int>(mainCat, iterator));
+                            iterator++;
+                        }
+                        
                     }
                     var duplicateDates = formattedDates.GroupBy(d => d)
                                      .Where(g => g.Count() > 1)
                                      .Select(y => y.Key)
                                      .ToList();
-
-                    for (var d = 0; d < duplicateDates.Count; d++)
-                    //foreach (var fullCategory in fullCategoryAndOrder)
+                    if(duplicateDates.Count > 0)
                     {
-
-                        //for (var d = 0; d < duplicateDates.Count; d++)
-                        foreach (var fullCategory in fullCategoryAndOrder)
+                        for (var d = 0; d < duplicateDates.Count; d++)
+                        //foreach (var fullCategory in fullCategoryAndOrder)
                         {
-                            dp.Add(new DataPoint(dateType, fullCategory.Item1, duplicateDates[d] , null, null, fullCategory.Item2));
+
+                            //for (var d = 0; d < duplicateDates.Count; d++)
+                            foreach (var fullCategory in fullCategoryAndOrder)
+                            {
+                                dp.Add(new DataPoint(dateType, fullCategory.Item1, duplicateDates[d], null, null, fullCategory.Item2));
+                            }
                         }
                     }
+                    else
+                    {
+                        for(var date = 0; date < formattedDates.Count; date++)
+                        {
+                            foreach (var fullCategory in fullCategoryAndOrder)
+                            {
+                                dp.Add(new DataPoint(dateType, fullCategory.Item1, formattedDates[date], null, null, fullCategory.Item2));
+                            }
+                        }
+                        
+                    }
+                    
                 }
 
                 for(var s = 0; s < series.Count; s++)
                 {
                     dp[s].Value = series[s];
                 }
-
-
-
 
 
                 // WriteXml
@@ -387,6 +417,12 @@ namespace Education
             {
                 //Get rid of non digits
                 year = Convert.ToInt32(Regex.Replace(unformattedDate, "[^0-9]", ""));
+                String yearString = year.ToString();
+                if (yearString.Length > 4)
+                {
+                    year = Convert.ToInt32(yearString.Substring(0,4));
+                }
+
             }
 
             // Convert to date object
@@ -399,7 +435,7 @@ namespace Education
 
         private static List<Category> FindSubCategories(List<Category> cat,
                                               Excel.Worksheet activeWorksheet,
-                                              Excel.Range cell, string cellValue)
+                                              Excel.Range cell, string cellValue, Boolean headerHasMainAndSubCategories)
         {
             int mergedNumberOfCells = Convert.ToInt32(cell.Cells.MergeArea.Count);
             int cellRow = Convert.ToInt32(cell.Row);
@@ -414,79 +450,86 @@ namespace Education
             var cellAbove = (activeWorksheet.Cells[location[1] - 1, location[0]] as Excel.Range);
             var cellAboveVal = cellAbove.Value;
             var selectedCell = (activeWorksheet.Cells[location[0], location[1]] as Excel.Range);
-            // Check if cell below is shaded same color
-            if (Convert.ToInt32(cellBelow.Font.Color) == 16776960 && cellBelow.MergeCells.Equals(true))
+            if (headerHasMainAndSubCategories == false)
             {
-                // Find the cells below merged range and if it is divisable into the selected cell
-                String range = cellBelow.MergeArea.Address;
-                var rangeOfSelectedCells = cell.MergeArea.Address;
-                var numberOfColumnsOfCellsBelow = cellBelow.MergeArea.Columns.Count;
-                int numberOfColumnsOfSelectedCells = 0;
-                var colon = rangeOfSelectedCells.IndexOf(':');
-                numberOfColumnsOfSelectedCells = NumberOfColumnsOfMergedCells(rangeOfSelectedCells);
-                if (numberOfColumnsOfSelectedCells % numberOfColumnsOfCellsBelow == 0
-                    && numberOfColumnsOfSelectedCells / numberOfColumnsOfCellsBelow != 1)
+                // Check if cell below is shaded same color
+                if (Convert.ToInt32(cellBelow.Font.Color) == 16776960 && cellBelow.MergeCells.Equals(true))
                 {
-                    // determine the number of sub categories under the selected cells
-                    int numberOfSubCategories = (numberOfColumnsOfSelectedCells / numberOfColumnsOfCellsBelow);
-                    int totalNumberOfColumns = numberOfColumnsOfSelectedCells;
-                    Excel.Range subcategorySelection = null;
-                    // get all the subcategories based on how many and location
-                    var i = 0;
-                    while (i < totalNumberOfColumns)
+                    // Find the cells below merged range and if it is divisable into the selected cell
+                    String range = cellBelow.MergeArea.Address;
+                    var rangeOfSelectedCells = cell.MergeArea.Address;
+                    var numberOfColumnsOfCellsBelow = cellBelow.MergeArea.Columns.Count;
+                    int numberOfColumnsOfSelectedCells = 0;
+                    var colon = rangeOfSelectedCells.IndexOf(':');
+                    numberOfColumnsOfSelectedCells = NumberOfColumnsOfMergedCells(rangeOfSelectedCells);
+                    if (numberOfColumnsOfSelectedCells % numberOfColumnsOfCellsBelow == 0
+                        && numberOfColumnsOfSelectedCells / numberOfColumnsOfCellsBelow != 1)
                     {
+                        // determine the number of sub categories under the selected cells
+                        int numberOfSubCategories = (numberOfColumnsOfSelectedCells / numberOfColumnsOfCellsBelow);
+                        int totalNumberOfColumns = numberOfColumnsOfSelectedCells;
+                        Excel.Range subcategorySelection = null;
+                        // get all the subcategories based on how many and location
+                        var i = 0;
+                        while (i < totalNumberOfColumns)
+                        {
 
-                        int[] rangeOfCells = new int[2];
-                        rangeOfCells[0] = location[0] + i;
-                        // Find subcategory below by adding 1 to the row location
-                        rangeOfCells[1] = location[1] + 1;
-                        // if location of subcategory has merged cells, go down the rabithole for more subcategories
-                        subcategorySelection = (activeWorksheet.Cells[rangeOfCells[1], rangeOfCells[0]] as Excel.Range);
-                        String subcategorySelectionValue = "";
-                        var subCatAddress = subcategorySelection.MergeArea.Address;
-                        var subSubCategoriesNumberOfColumns = NumberOfColumnsOfMergedCells(subCatAddress);
-                        if (subSubCategoriesNumberOfColumns == 1)
-                        {
-                            subcategorySelectionValue = (Convert.ToString((activeWorksheet.Cells[rangeOfCells[1], rangeOfCells[0]] as Excel.Range).Value));
-                            subCatValueAndLength.Add(subcategorySelectionValue, numberOfColumnsOfCellsBelow);
-                            i = i + (numberOfColumnsOfCellsBelow);
-                        }
-                        else
-                        {
-                            var topLevelCategory = (activeWorksheet.Cells[rangeOfCells[1], rangeOfCells[0]] as Excel.Range).Value;
-                            var topLevelCatRange = rangeOfCells;
-                            topLevelCatRange[1] = topLevelCatRange[1] + 1;
-                            for (var s = 0; s < subSubCategoriesNumberOfColumns; s++)
+                            int[] rangeOfCells = new int[2];
+                            rangeOfCells[0] = location[0] + i;
+                            // Find subcategory below by adding 1 to the row location
+                            rangeOfCells[1] = location[1] + 1;
+                            // if location of subcategory has merged cells, go down the rabithole for more subcategories
+                            subcategorySelection = (activeWorksheet.Cells[rangeOfCells[1], rangeOfCells[0]] as Excel.Range);
+                            String subcategorySelectionValue = "";
+                            var subCatAddress = subcategorySelection.MergeArea.Address;
+                            var subSubCategoriesNumberOfColumns = NumberOfColumnsOfMergedCells(subCatAddress);
+                            if (subSubCategoriesNumberOfColumns == 1)
                             {
-
-                                /// //Adjust range of cells
-                                var subSubCatCol = topLevelCatRange[0] + s;
-                                var subSubCategorySelection = (activeWorksheet.Cells[topLevelCatRange[1], subSubCatCol] as Excel.Range).Value;
-                                /// append sub sub categories
-                                subcategorySelectionValue = topLevelCategory + "_" + subSubCategorySelection;
+                                subcategorySelectionValue = (Convert.ToString((activeWorksheet.Cells[rangeOfCells[1], rangeOfCells[0]] as Excel.Range).Value));
                                 subCatValueAndLength.Add(subcategorySelectionValue, numberOfColumnsOfCellsBelow);
+                                i = i + (numberOfColumnsOfCellsBelow);
                             }
-                            //Adjust iterator for the length of the merged cells in the sub sub category
-                            i = i + subSubCategoriesNumberOfColumns;
+                            else
+                            {
+                                var topLevelCategory = (activeWorksheet.Cells[rangeOfCells[1], rangeOfCells[0]] as Excel.Range).Value;
+                                var topLevelCatRange = rangeOfCells;
+                                topLevelCatRange[1] = topLevelCatRange[1] + 1;
+                                for (var s = 0; s < subSubCategoriesNumberOfColumns; s++)
+                                {
+
+                                    /// //Adjust range of cells
+                                    var subSubCatCol = topLevelCatRange[0] + s;
+                                    var subSubCategorySelection = (activeWorksheet.Cells[topLevelCatRange[1], subSubCatCol] as Excel.Range).Value;
+                                    /// append sub sub categories
+                                    subcategorySelectionValue = topLevelCategory + "_" + subSubCategorySelection;
+                                    subCatValueAndLength.Add(subcategorySelectionValue, numberOfColumnsOfCellsBelow);
+                                }
+                                //Adjust iterator for the length of the merged cells in the sub sub category
+                                i = i + subSubCategoriesNumberOfColumns;
+                            }
+
                         }
+                        catValueAndLength.Add(cellValue, numberOfColumnsOfSelectedCells);
+                        cat.Add(new Category(catValueAndLength, subCatValueAndLength));
+                        var aboveValue = cellAbove.Value;
+                        var value = selectedCell.Value;
+
 
                     }
-                    catValueAndLength.Add(cellValue, numberOfColumnsOfSelectedCells);
-                    cat.Add(new Category(catValueAndLength, subCatValueAndLength));
-                    var aboveValue = cellAbove.Value;
-                    var value = selectedCell.Value;
-
-
-                }
-                else if ((numberOfColumnsOfSelectedCells % numberOfColumnsOfCellsBelow == 0
-                    && numberOfColumnsOfSelectedCells / numberOfColumnsOfCellsBelow == 1 && cellBelowVal != null))
-                {
-                    catValueAndLength.Add(cellValue, numberOfColumnsOfSelectedCells);
-                    cat.Add(new Category(catValueAndLength, null));
+                    else if ((numberOfColumnsOfSelectedCells % numberOfColumnsOfCellsBelow == 0
+                        && numberOfColumnsOfSelectedCells / numberOfColumnsOfCellsBelow == 1 && cellBelowVal != null))
+                    {
+                        catValueAndLength.Add(cellValue, numberOfColumnsOfSelectedCells);
+                        cat.Add(new Category(catValueAndLength, null));
+                    }
+                    return cat;
                 }
                 return cat;
             }
-            return cat;
+            else
+            {
+                return null;
+            }
         }
     }
 
