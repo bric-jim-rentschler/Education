@@ -57,6 +57,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Category.cs" />
+    <Compile Include="Neums.cs" />
     <Compile Include="DataPoint.cs" />
     <Compile Include="Form1.cs">
       <SubType>Form</SubType>

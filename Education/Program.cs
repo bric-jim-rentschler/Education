@@ -142,7 +142,7 @@ namespace Education
                 //Categories Longer than dates?
                 Boolean dateInHeader = false;
                 String dateType = "School Year";
-                Boolean headerHasMainAndSubCategories = false;
+                Boolean headerHasMainAndSubCategories = true;
 
                 Excel.Range allCells = (Excel.Range)activeWorksheet.UsedRange;
 
@@ -158,7 +158,11 @@ namespace Education
                         }
                         if (cellColor == 16776960)
                         {
-                            //mainAndSubCategories = FindSubCategories(cat, activeWorksheet, cell, cellValue, headerHasMainAndSubCategories);
+                            if(headerHasMainAndSubCategories == false)
+                            {
+                                mainAndSubCategories = FindSubCategories(cat, activeWorksheet, cell, cellValue, headerHasMainAndSubCategories);
+                            }
+                            
                         }
                         if (cellColor == 16711680 || cellColor == 255)
                         {
@@ -166,13 +170,16 @@ namespace Education
                             {
                                 formattedDates.Add(FormattedDate(cellValue));
                             }
-                           
-                            
+
                         }
                         if (cellColor == 16711935)
                         {
                             category.Add(cellValue);
-                            mainAndSubCategories = FindSubCategories(cat, activeWorksheet, cell, cellValue, headerHasMainAndSubCategories);
+                            if (headerHasMainAndSubCategories == true)
+                            {
+                                mainAndSubCategories = FindSubCategories(cat, activeWorksheet, cell, cellValue, headerHasMainAndSubCategories);
+                            }
+                            
                         }
                         if (cellColor != 0 && cellColor != 16711935 && cellColor != 255
                             && cellColor != 16776960 && cellColor != 16711680)
@@ -235,7 +242,6 @@ namespace Education
                         if (mainAndSubCategories[i].SubCategories == null && mainAndSubCategories[i].MainCategory != null)
                         {
 
-
                             foreach (KeyValuePair<String, int> mc in mainAndSubCategories[i].MainCategory)
                             {
                                 var length = 0;
@@ -247,11 +253,14 @@ namespace Education
                                         {
                                             foreach (var d in formattedDates)
                                             {
-                                                
                                                 subSubCatsAndDates.Add(new Tuple<String, DateTime?, int>(kvp.Key, d, counter));
                                             }
 
                                         }
+                                    }
+                                    else
+                                    {
+                                        subSubCatsAndDates.Add(new Tuple<string, DateTime?, int>(kvp.Key, null, counter));
                                     }
 
                                     length++;
@@ -290,62 +299,124 @@ namespace Education
                 if (dateInHeader == false)
                 {
                     int iterator = 0;
-                    foreach (var mainCat in category)
+                    if (headerHasMainAndSubCategories == false)
                     {
-                        if (subSubCatsAndDates.Count > 0)
+                        foreach (var mainCat in category)
                         {
-                            foreach (var subCat in subSubCatsAndDates)
-
+                            if (subSubCatsAndDates.Count > 0)
                             {
-                                String formattedMainCat = mainCat.Replace(".", "");
-                                formattedMainCat = formattedMainCat + "_";
-                                fullCategoryAndOrder.Add(new Tuple<String, int>(formattedMainCat + subCat.Item1, subCat.Item3));
+                                foreach (var subCat in subSubCatsAndDates)
 
+                                {
+                                    String formattedMainCat = mainCat.Replace(".", "");
+                                    formattedMainCat = formattedMainCat + "_";
+                                    fullCategoryAndOrder.Add(new Tuple<String, int>(formattedMainCat + subCat.Item1, subCat.Item3));
+
+                                }
+                            }
+                            else
+                            {
+                                fullCategoryAndOrder.Add(new Tuple<String, int>(mainCat, iterator));
+                                iterator++;
+                            }
+
+                        }
+                        var duplicateDates = formattedDates.GroupBy(d => d)
+                                         .Where(g => g.Count() > 1)
+                                         .Select(y => y.Key)
+                                         .ToList();
+                        if (duplicateDates.Count > 0)
+                        {
+                            for (var d = 0; d < duplicateDates.Count; d++)
+                            //foreach (var fullCategory in fullCategoryAndOrder)
+                            {
+
+                                //for (var d = 0; d < duplicateDates.Count; d++)
+                                foreach (var fullCategory in fullCategoryAndOrder)
+                                {
+                                    dp.Add(new DataPoint(dateType, fullCategory.Item1, duplicateDates[d], null, null, fullCategory.Item2));
+                                }
                             }
                         }
                         else
                         {
-                            fullCategoryAndOrder.Add(new Tuple<String, int>(mainCat, iterator));
-                            iterator++;
-                        }
-                        
-                    }
-                    var duplicateDates = formattedDates.GroupBy(d => d)
-                                     .Where(g => g.Count() > 1)
-                                     .Select(y => y.Key)
-                                     .ToList();
-                    if(duplicateDates.Count > 0)
-                    {
-                        for (var d = 0; d < duplicateDates.Count; d++)
-                        //foreach (var fullCategory in fullCategoryAndOrder)
-                        {
-
-                            //for (var d = 0; d < duplicateDates.Count; d++)
-                            foreach (var fullCategory in fullCategoryAndOrder)
+                            for (var date = 0; date < formattedDates.Count; date++)
                             {
-                                dp.Add(new DataPoint(dateType, fullCategory.Item1, duplicateDates[d], null, null, fullCategory.Item2));
+                                foreach (var fullCategory in fullCategoryAndOrder)
+                                {
+                                    dp.Add(new DataPoint(dateType, fullCategory.Item1, formattedDates[date], null, null, fullCategory.Item2));
+                                }
                             }
+
                         }
+
                     }
                     else
                     {
-                        for(var date = 0; date < formattedDates.Count; date++)
+                        if (subSubCatsAndDates.Count > 0)
                         {
-                            foreach (var fullCategory in fullCategoryAndOrder)
+                            foreach (var subCat in subSubCatsAndDates)
                             {
-                                dp.Add(new DataPoint(dateType, fullCategory.Item1, formattedDates[date], null, null, fullCategory.Item2));
+                                fullCategoryAndOrder.Add(new Tuple<String, int>(subCat.Item1, subCat.Item3));
                             }
                         }
-                        
+                        var duplicateDates = formattedDates.GroupBy(d => d)
+                                         .Where(g => g.Count() > 1)
+                                         .Select(y => y.Key)
+                                         .ToList();
+                        if (duplicateDates.Count > 0)
+                        {
+                            for (var d = 0; d < duplicateDates.Count; d++)
+                            //foreach (var fullCategory in fullCategoryAndOrder)
+                            {
+
+                                //for (var d = 0; d < duplicateDates.Count; d++)
+                                foreach (var fullCategory in fullCategoryAndOrder)
+                                {
+                                    dp.Add(new DataPoint(dateType, fullCategory.Item1, duplicateDates[d], null, null, fullCategory.Item2));
+                                }
+                            }
+                        }
+                        else
+                        {
+                            for (var date = 0; date < formattedDates.Count; date++)
+                            {
+                                foreach (var fullCategory in fullCategoryAndOrder)
+                                {
+                                    dp.Add(new DataPoint(dateType, fullCategory.Item1, formattedDates[date], null, null, fullCategory.Item2));
+                                }
+                            }
+                        }
                     }
-                    
                 }
+                    
 
                 for(var s = 0; s < series.Count; s++)
                 {
                     dp[s].Value = series[s];
                 }
 
+                //Add neums
+                List<Neums> nms = new List<Neums>();
+                foreach (var neum in dp)
+                {
+                    
+                    String previousItem1 = "";
+                    if (neum.Category != previousItem1)
+                    {
+                        nms.Add(new Neums(neumAbv + "_" + neum.Category.TrimStart(), unformattedNeum + neum.Category));
+                        previousItem1 = neum.Category;
+                    }
+                    else
+                    {
+                        previousItem1 = neum.Category;
+                    }
+                }
+
+                var consolidatedNeums = from n in nms
+                                        group n by n.Neum into g
+                                        select new { Neum = g.Key, Value = g.Min(d => d.Value) };
+                                         
 
                 // WriteXml
                 using (StringWriter str = new StringWriter())
@@ -357,23 +428,15 @@ namespace Education
                     xml.WriteWhitespace("\n");
                     xml.WriteStartElement("DataSeries");
                     String previousItem = "";
-                    foreach (var n in dp)
+                    foreach (var n in consolidatedNeums)
                     {
-                        if (n.Category != previousItem)
-                        {
-                            xml.WriteStartElement("Neum");
-                            xml.WriteAttributeString("Full_Neum", neumAbv + "_" + n.Category.TrimStart());
-                            xml.WriteAttributeString("Value", unformattedNeum + n.Category);
-                            xml.WriteEndElement();
-                            xml.WriteWhitespace("\n");
-                            previousItem = n.Category;
-                        }
-                        else
-                        {
-                            previousItem = n.Category;
-                        }
-
+                        xml.WriteStartElement("Neum");
+                        xml.WriteAttributeString("Full_Neum", n.Neum);
+                        xml.WriteAttributeString("Value", n.Value);
+                        xml.WriteEndElement();
+                        xml.WriteWhitespace("\n");
                     }
+
                     xml.WriteEndElement();
 
                     xml.WriteStartElement("DataPoints");
@@ -450,18 +513,20 @@ namespace Education
             var cellAbove = (activeWorksheet.Cells[location[1] - 1, location[0]] as Excel.Range);
             var cellAboveVal = cellAbove.Value;
             var selectedCell = (activeWorksheet.Cells[location[0], location[1]] as Excel.Range);
+            // Find the cells below merged range and if it is divisable into the selected cell
+            String range = cellBelow.MergeArea.Address;
+            var rangeOfSelectedCells = cell.MergeArea.Address;
+            var numberOfColumnsOfCellsBelow = cellBelow.MergeArea.Columns.Count;
+            int numberOfColumnsOfSelectedCells = 0;
+            var colon = rangeOfSelectedCells.IndexOf(':');
+            numberOfColumnsOfSelectedCells = NumberOfColumnsOfMergedCells(rangeOfSelectedCells);
+
             if (headerHasMainAndSubCategories == false)
             {
                 // Check if cell below is shaded same color
                 if (Convert.ToInt32(cellBelow.Font.Color) == 16776960 && cellBelow.MergeCells.Equals(true))
                 {
-                    // Find the cells below merged range and if it is divisable into the selected cell
-                    String range = cellBelow.MergeArea.Address;
-                    var rangeOfSelectedCells = cell.MergeArea.Address;
-                    var numberOfColumnsOfCellsBelow = cellBelow.MergeArea.Columns.Count;
-                    int numberOfColumnsOfSelectedCells = 0;
-                    var colon = rangeOfSelectedCells.IndexOf(':');
-                    numberOfColumnsOfSelectedCells = NumberOfColumnsOfMergedCells(rangeOfSelectedCells);
+                    
                     if (numberOfColumnsOfSelectedCells % numberOfColumnsOfCellsBelow == 0
                         && numberOfColumnsOfSelectedCells / numberOfColumnsOfCellsBelow != 1)
                     {
@@ -524,12 +589,86 @@ namespace Education
                     }
                     return cat;
                 }
-                return cat;
+                return cat;       
             }
-            else
+            if (headerHasMainAndSubCategories == true)
             {
-                return null;
-            }
+                if (Convert.ToInt32(cellBelow.Font.Color) == 16776960)
+                {
+
+                    if (numberOfColumnsOfSelectedCells % numberOfColumnsOfCellsBelow == 0
+                        && numberOfColumnsOfSelectedCells / numberOfColumnsOfCellsBelow != 1)
+                    {
+                        // determine the number of sub categories under the selected cells
+                        int numberOfSubCategories = (numberOfColumnsOfSelectedCells / numberOfColumnsOfCellsBelow);
+                        int totalNumberOfColumns = numberOfColumnsOfSelectedCells;
+                        Excel.Range subcategorySelection = null;
+                        // get all the subcategories based on how many and location
+                        var i = 0;
+                        while (i < totalNumberOfColumns)
+                        {
+
+                            int[] rangeOfCells = new int[2];
+                            rangeOfCells[0] = location[0] + i;
+                            // Find subcategory below by adding 1 to the row location
+                            rangeOfCells[1] = location[1] + 1;
+                            // if location of subcategory has merged cells, go down the rabithole for more subcategories
+                            subcategorySelection = (activeWorksheet.Cells[rangeOfCells[1], rangeOfCells[0]] as Excel.Range);
+                            String subcategorySelectionValue = "";
+                            var subCatAddress = subcategorySelection.MergeArea.Address;
+                            var subSubCategoriesNumberOfColumns = NumberOfColumnsOfMergedCells(subCatAddress);
+                            if (subSubCategoriesNumberOfColumns == 0 && subcategorySelection.Columns.Count == 1)
+                            {
+                                subSubCategoriesNumberOfColumns = 1;
+                            }
+                            if (subSubCategoriesNumberOfColumns == 1)
+                            {
+                                subcategorySelectionValue = (Convert.ToString((activeWorksheet.Cells[rangeOfCells[1], rangeOfCells[0]] as Excel.Range).Value));
+                                subCatValueAndLength.Add(subcategorySelectionValue, numberOfColumnsOfCellsBelow);
+                                i = i + (numberOfColumnsOfCellsBelow);
+                            }
+                            else
+                            {
+                                var topLevelCategory = (activeWorksheet.Cells[rangeOfCells[1], rangeOfCells[0]] as Excel.Range).Value;
+                                var topLevelCatRange = rangeOfCells;
+                                topLevelCatRange[1] = topLevelCatRange[1] + 1;
+                                for (var s = 0; s < subSubCategoriesNumberOfColumns; s++)
+                                {
+
+                                    /// //Adjust range of cells
+                                    var subSubCatCol = topLevelCatRange[0] + s;
+                                    var subSubCategorySelection = (activeWorksheet.Cells[topLevelCatRange[1], subSubCatCol] as Excel.Range).Value;
+                                    /// append sub sub categories
+                                    subcategorySelectionValue = topLevelCategory + "_" + subSubCategorySelection;
+                                    subCatValueAndLength.Add(subcategorySelectionValue, numberOfColumnsOfCellsBelow);
+                                }
+                                //Adjust iterator for the length of the merged cells in the sub sub category
+                                i = i + subSubCategoriesNumberOfColumns;
+                            }
+
+                        }
+                        catValueAndLength.Add(cellValue, numberOfColumnsOfSelectedCells);
+                        cat.Add(new Category(catValueAndLength, subCatValueAndLength));
+                        var aboveValue = cellAbove.Value;
+                        var value = selectedCell.Value;
+
+
+                    }
+                    else if ((numberOfColumnsOfSelectedCells % numberOfColumnsOfCellsBelow == 0
+                        && numberOfColumnsOfSelectedCells / numberOfColumnsOfCellsBelow == 1 && cellBelowVal != null))
+                    {
+                        catValueAndLength.Add(cellValue, numberOfColumnsOfSelectedCells);
+                        cat.Add(new Category(catValueAndLength, null));
+                    }
+                    return cat;
+                }
+                else
+                {
+                    catValueAndLength.Add(cellValue, numberOfColumnsOfSelectedCells);
+                    cat.Add(new Category(catValueAndLength, null));
+                }
+            }         
+            return cat;
         }
     }
 
