@@ -140,9 +140,10 @@ namespace Education
 
                 //ORIENTATION PARAMETER
                 //Categories Longer than dates?
-                Boolean dateInHeader = false;
+                Boolean dateInHeader = true;
                 String dateType = "School Year";
-                Boolean headerHasMainAndSubCategories = true;
+                Boolean headerHasMainAndSubCategories = false;
+                Boolean headerHasOnlySubCategory = true;
 
                 Excel.Range allCells = (Excel.Range)activeWorksheet.UsedRange;
 
@@ -274,7 +275,6 @@ namespace Education
                     }
                     i++;
                 }
-
                 // add subcategories to main categories
                 List<Tuple<String, int>> fullCategoryAndOrder = new List<Tuple<String, int>>();
 
@@ -564,9 +564,18 @@ namespace Education
 
                                     /// //Adjust range of cells
                                     var subSubCatCol = topLevelCatRange[0] + s;
-                                    var subSubCategorySelection = (activeWorksheet.Cells[topLevelCatRange[1], subSubCatCol] as Excel.Range).Value;
-                                    /// append sub sub categories
-                                    subcategorySelectionValue = topLevelCategory + "_" + subSubCategorySelection;
+                                    var subSubCategorySelectionColor = (activeWorksheet.Cells[topLevelCatRange[1], subSubCatCol] as Excel.Range).Font.Color;
+                                    var subSubCategorySelectionVal = (activeWorksheet.Cells[topLevelCatRange[1], subSubCatCol] as Excel.Range).Value;
+
+                                    if (Convert.ToInt32(subSubCategorySelectionColor) == 16776960)
+                                    {
+                                        /// append sub sub categories
+                                        subcategorySelectionValue = topLevelCategory + "_" + subSubCategorySelectionVal;
+                                    }
+                                    else
+                                    {
+                                        subcategorySelectionValue = topLevelCategory.ToString();
+                                    }
                                     subCatValueAndLength.Add(subcategorySelectionValue, numberOfColumnsOfCellsBelow);
                                 }
                                 //Adjust iterator for the length of the merged cells in the sub sub category
